@@ -1,8 +1,12 @@
-import re, urllib, os, sys
-import urllib.request
-import urllib.parse
 import argparse
-import os, json
+import json
+import os
+import re
+import sys
+import urllib
+import urllib.parse
+import urllib.request
+
 from youtube_dl import YoutubeDL
 
 user_input = input
@@ -12,6 +16,7 @@ cleanup = urllib.request.urlcleanup()
 urlopen = urllib.request.urlopen
 config_file_path = "config.json" # using a JSON file for simplicity, but it can
                                  # easly changed to an .ini file
+
 
 def config_settings(new_path=None):
     # create a new config file
@@ -26,6 +31,7 @@ def config_settings(new_path=None):
             if "default" in json_config:
                 return json_config["default"]
 
+
 def check_args(args=None, default=None):
     parser = argparse.ArgumentParser(description="YOUTUBE MP3 DOWNLOADER LIGHT")
     parser.add_argument('--output', '-o',
@@ -37,7 +43,9 @@ def check_args(args=None, default=None):
     parser.add_argument('--video', '-v',
                         help="Directly download video, without further CLI interactions")
     parser.add_argument('--playlist', '-p',
-                        help="Donwload an entire playlist")
+                        help="Download an entire playlist")
+    parser.add_argument('--count', '-pc',
+                        help="Number of playlist items to be downloaded")
     return parser.parse_args(args)
 
 
@@ -46,32 +54,39 @@ def get_title(url):
     title = str(website).split('<title>')[1].split('</title>')[0]
     return title
 
+
 def screen_clear():
     if os.name == 'nt':
         os.system('cls')
     else:
         os.system('clear')
 
+
 def init_message():
     print("Built with <3 By Sagar Vakkala (^^) \n")
     print("YOUTUBE MP3 DOWNLOADER LIGHT \n \n")
+
 
 def exit_message(t):
     print("\n %s Has been downloaded" % t)
 
 
-def download(song=None, folder_path=None, playlist=False):
+def download(song=None, folder_path=None, playlist=False, count=-1):
 
     ytdl_options = {
         'format': 'bestaudio/best', # select quality
         'outtmpl': "{}/%(title)s.%(ext)s".format(os.path.normpath(folder_path)),
         'noplaylist': not playlist,
+        'playliststart': 1,
         'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }]
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }]
     }
+
+    if count > 0:
+        ytdl_options['playlistend'] = count
 
     def ytdl_download(song_url):
         with YoutubeDL(ytdl_options) as ytdl:
@@ -81,7 +96,7 @@ def download(song=None, folder_path=None, playlist=False):
                 ytdl.download([song_url])
                 exit_message(song_title)
             except:
-                print('Error downloading %s' %song_title)
+                print('Error downloading %s' % song_title)
                 return None
 
     if not song:
@@ -90,7 +105,7 @@ def download(song=None, folder_path=None, playlist=False):
     if "youtube.com/" not in song:
 
         try:
-            query = encode({"search_query" : song})
+            query = encode({"search_query": song})
             web_content = urlopen("http://www.youtube.com/results?" + query)
             results = re.findall(r'href=\"\/watch\?v=(.{11})', web_content.read().decode())
         except:
@@ -102,6 +117,7 @@ def download(song=None, folder_path=None, playlist=False):
     else:
         ytdl_download(song)
 
+
 def main():
     screen_clear()
     init_message()
@@ -110,10 +126,16 @@ def main():
     config_default = config_settings(new_path=default_path)
     path = check_args(sys.argv[1:], default=config_default).output
     try:
+        count = int(check_args(sys.argv[1:]).count or -1)
+    except ValueError:
+        print("Invalid `count` argument. `count` must be an integer")
+        return
+
+    try:
         if check_args(sys.argv[1:]).video:
             download(song=check_args(sys.argv[1:]).video, folder_path=path)
         elif check_args(sys.argv[1:]).playlist:
-            download(song=check_args(sys.argv[1:]).playlist, folder_path=path, playlist=True)
+            download(song=check_args(sys.argv[1:]).playlist, folder_path=path, playlist=True, count=count)
         else:
             while True:
                 download(folder_path=path)
